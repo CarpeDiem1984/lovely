@@ -10,6 +10,7 @@
 .runner{top:80%;height:12%;font-size:clamp(26px,5vw,45px);line-height:1}
 .rainword{height:9%;font-weight:750;font-size:clamp(12px,3vw,24px);color:#ffdf7d}
 .rainword span{border:1px solid #9d678d;background:#56354f;padding:0 .25em;border-radius:8px}
+.extras canvas{display:block;width:100%;height:auto;border-radius:16px}.picks,.stars,.actions,.pairs{display:grid;gap:10px}.picks,.actions{grid-template-columns:repeat(2,minmax(0,1fr))}.actions{margin-top:18px}.extras select,.extras textarea{display:block;width:100%;margin-top:5px;border:1px solid #baaab8;border-radius:9px;padding:10px;font:inherit;background:white;color:#31253a}.pairs{grid-template-columns:repeat(4,1fr)}.pairs button{aspect-ratio:1.3;font-size:27px;background:#594679;color:white}.pairs button:disabled{background:#e4dcea}.stars{grid-template-columns:repeat(5,1fr)}.stars label{text-align:center}.stars input{width:auto;display:block;margin:auto}.extras fieldset{border:0;padding:0}.extras [hidden]{display:none}
 </style>
 <header><span class="logo">Я</span><span id="brand">Директ</span></header><main id="app"></main>
 <script>
@@ -31,6 +32,10 @@ function render(){
  document.body.className=memories||page==='voucher'?'recap':'';
  document.querySelector('#brand').textContent=memories?'Воспоминания':'Директ';
  app.innerHTML='<section></section>';const box=app.firstChild;box.className='panel';
+ if(page==='portrait'){portrait(box);return}
+ if(page==='pairs'){pairs(box);return}
+ if(page==='review'){review(box);return}
+ if(page==='memo'){memo(box);return}
  if(page==='dodge'){showDodge(box);return}
  if(page==='maze'){showMaze(box);return}
  if(page==='login'){
@@ -53,6 +58,8 @@ function render(){
  if(page==='quiz'){box.insertAdjacentHTML('beforeend','<form><label for="guess">Твоя версия</label><input id="guess" inputmode="numeric" required maxlength="60"><button>Проверить</button></form>');box.querySelector('form').onsubmit=e=>{e.preventDefault();const guess=box.querySelector('input').value.trim();if(guess)go('result',{guess})}}
  else{const guess=document.createElement('p');guess.textContent='Твоя версия — '+state.guess;box.append(guess);const result=document.createElement('p');result.className='number';result.textContent=a;box.append(result);if(note){const p=document.createElement('p');p.textContent=note;box.append(p)}box.append(idx<4?button('Следующий вопрос',()=>go('quiz',{idx:idx+1})):button('Сыграть за Катюшу',()=>go('maze')))}return}
  box.innerHTML='<small>Подарочный ваучер · Для двоих</small><h1>Катюша, с годовщиной!</h1><div class="date">5 декабря</div><div class="voucher"><p>В этот день мы с тобой едем в отель. В какой — пока сюрприз.</p><p>Люблю тебя. Твой Кирюша 🤍</p></div>';
+ box.append(button(state.wish?'Моя служебная записка':'Оценить работу Кирюши',()=>go(state.wish?'memo':'review')));
+ box.append(button('Составить фоторобот',()=>go('portrait')),button('Сыграть в пары',()=>go('pairs',{deck:null,matched:[]})));
  box.append(button('Сыграть в «чмоню» ещё раз',()=>go('dodge')));
  box.append(button('Сыграть в чипсы ещё раз',()=>go('maze',{collected:[]})));
 }
@@ -140,7 +147,7 @@ function showMaze(box, caught=false){
   clearInterval(timer);document.removeEventListener('keydown',onKey);draw();
   bubble.remove();men.forEach(el=>el.classList.add('escape'));
   notice.textContent='Кирюша убегает: «люблю тебя даже вонючкой»';
-  pad.replaceChildren(button('Увернуться от «чмонь»',()=>go('dodge')));
+  pad.replaceChildren(button('Составить фоторобот',()=>go('portrait')));
  }
  ['←','→','↑','↓'].forEach((label,i)=>{
   const control=button(label,()=>steer(dirs[i]));control.setAttribute('aria-label',['Влево','Вправо','Вверх','Вниз'][i]);pad.append(control);
@@ -168,8 +175,8 @@ function showDodge(box){
  function end(won){
   running=false;
   document.removeEventListener('keydown',onKey);
-  notice.textContent=won?'Все 20 «чмонь» пролетели мимо! Поддержка уже ответила.':'Чмоня попала! Уворотов подряд: '+score+'. Попробуешь ещё?';
-  pad.replaceChildren(won?button('Прочитать ответ поддержки',()=>go('gift')):button('Начать заново',start));
+  notice.textContent=won?'Все 20 «чмонь» пролетели мимо! Осталось найти пары.':'Чмоня попала! Уворотов подряд: '+score+'. Попробуешь ещё?';
+  pad.replaceChildren(won?button('Сыграть в пары',()=>go('pairs',{deck:null,matched:[]})):button('Начать заново',start));
  }
  function spawn(){
   const el=document.createElement('div');el.className='rainword';el.innerHTML='<span>чмоня</span>';
@@ -201,6 +208,134 @@ function showDodge(box){
   document.addEventListener('keydown',onKey);requestAnimationFrame(frame);
  }
  drawPlayer();drawScore();pad.append(button('Начать игру',start));
+}
+
+function saveScene(canvas,name){
+ const link=document.createElement('a');
+ link.download=name+'.png';link.href=canvas.toDataURL('image/png');link.click();
+}
+function portrait(box){
+ box.className='story extras';
+ box.innerHTML='<small>Поддержка Директа</small><h1>Фоторобот толстомясика</h1><p>Катюша, опиши того, кто требовал почёсываний.</p><canvas width="640" height="490" aria-label="Ориентировка с портретом Кирюши"></canvas><div class="picks"></div><div class="actions"></div>';
+ const canvas=box.querySelector('canvas'), c=canvas.getContext('2d');
+ const traits=[
+ ['Причёска',['Кудри','Чёлка','Ёжик','Каштановый пробор']],
+ ['Выражение лица',['Улыбается','Подмигивает','Просит почесать','Спокойный взгляд']],
+ ['Одежда',['Худи','Тельняшка','Футболка','Чёрное худи BURBERRY']],
+ ['В руках',['Чипсы Lay’s','Телефон','Расчёска','Пустые руки']]
+ ];
+ const values=state.traits||[0,0,0,0];
+ function oval(x,y,rx,ry,color){
+  c.fillStyle=color;c.beginPath();c.ellipse(x,y,rx,ry,0,0,Math.PI*2);c.fill();
+ }
+ function line(points,color,width){
+  c.strokeStyle=color;c.lineWidth=width;c.lineCap='round';c.beginPath();
+  points.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.stroke();
+ }
+ function draw(){
+  const [hair,face,shirt,item]=values;
+  c.fillStyle='#ffead0';c.fillRect(0,0,640,490);c.textAlign='center';
+  c.fillStyle='#412b41';c.font='bold 32px sans-serif';c.fillText('Разыскивается толстомясик',320,55);
+  c.save();c.beginPath();c.rect(0,85,640,320);c.clip();
+  oval(320,250,170,170,'#f6bda5');
+  oval(320,410,shirt===3?137:107,95,['#8177cf','#f5f1df','#5c9e8c','#17181e'][shirt]);
+  if(shirt===1){for(let y=355;y<410;y+=17)line([[246,y],[394,y]],'#395378',6)}
+  if(shirt===0){line([[280,340],[320,360],[360,340]],'#595192',7);line([[310,357],[307,381]],'#fff0da',3);line([[330,357],[333,381]],'#fff0da',3)}
+  if(shirt===3){
+   oval(320,316,87,42,'#232329');
+   oval(320,310,66,38,'#101115');
+   line([[257,324],[313,353],[327,354],[381,322]],'#303137',4);
+   c.fillStyle='#fff8ef';c.font='bold 17px sans-serif';c.fillText('BURBERRY',320,389);
+   line([[305,349],[311,395]],'#35363a',4);line([[337,349],[328,398]],'#35363a',4);
+  }
+  oval(320,246,75,88,'#ffd09d');
+  if(hair===0){for(let i=0;i<11;i++)oval(253+i*13,197-Math.sin(i*Math.PI/10)*32,17,19,'#543942')}
+  if(hair===1){oval(320,184,69,30,'#543942');line([[372,183],[341,215],[350,185]],'#543942',13)}
+  if(hair===2){for(let i=0;i<10;i++)line([[257+13*i,197],[262+13*i,166-Math.sin(i/3)*13]],'#543942',12)}
+  if(hair===3){
+   c.fillStyle='#513624';c.beginPath();c.moveTo(247,236);
+   c.bezierCurveTo(234,186,255,127,307,149);
+   c.bezierCurveTo(346,115,410,151,391,235);
+   c.bezierCurveTo(382,198,352,167,309,164);
+   c.bezierCurveTo(279,165,257,193,247,236);c.fill();
+   c.strokeStyle='#896342';c.lineWidth=3;
+   for(let n=0;n<3;n++){
+    c.beginPath();c.moveTo(309+n*3,155-n*2);c.quadraticCurveTo(358,123+n*6,385+n,200+n*4);c.stroke();
+    c.beginPath();c.moveTo(301-n*2,154+n*2);c.quadraticCurveTo(268,141+n*5,249+n,199+n*3);c.stroke();
+   }
+  }
+  if(face===3){
+   for(const x of [290,350]){
+    line([[x-14,230],[x-3,226],[x+12,228]],'#78553e',4);
+    oval(x,244,12,5,'#fff1da');oval(x,244,4.7,4.7,'#735637');oval(x,244,2,3,'#332921');
+   }
+   line([[320,250],[315,264],[322,265]],'#ce936e',2);
+   oval(320,283,17,4,'#ce9086');line([[305,282],[318,281],[335,282]],'#945e58',2);
+  }else{
+  oval(291,242,6,face===2?10:7,'#45303d');
+  if(face===1)line([[338,244],[347,239],[355,243]],'#45303d',4);else oval(349,242,6,face===2?10:7,'#45303d');
+  if(face===2)oval(320,278,10,8,'#ac5d61');else line([[301,275],[312,282],[326,283],[340,274]],'#a55755',5);
+  }
+  if(item!==3)oval(401,354,22,21,'#ffd09d');
+  if(item===0){c.fillStyle='#ffdc33';c.fillRect(391,292,65,77);oval(423,331,28,14,'#cc292b');c.fillStyle='white';c.font='italic bold 16px Georgia';c.fillText('Lay’s',423,336)}
+  else if(item!==3){c.font='57px sans-serif';if(item===1)c.fillText('📱',420,357);else{line([[398,355],[447,304]],'#773f64',9);for(let i=0;i<7;i++)line([[420+i*4,329-i*4],[409+i*4,318-i*4]],'#773f64',4)}}
+  c.restore();c.fillStyle='#412b41';c.font='23px sans-serif';c.fillText('На «Кирюша» тоже отзывается',320,451);
+ }
+ traits.forEach(([label,options],i)=>{
+  const el=document.createElement('label');el.textContent=label;
+  const select=document.createElement('select');options.forEach(text=>select.add(new Option(text)));select.selectedIndex=values[i];
+  select.onchange=()=>{values[i]=select.selectedIndex;state.traits=values;try{localStorage.setItem(key,JSON.stringify(state))}catch{}draw()};
+  el.append(select);box.querySelector('.picks').append(el);
+ });
+ draw();box.querySelector('.actions').append(button('Сохранить фоторобот',()=>saveScene(canvas,'Фоторобот Кирюши')),button('К игре «чмоня»',()=>go('dodge')));
+}
+function pairs(box){
+ const symbols=['🥔','📱','🛎️','💌','🧳','🪮'];
+ let deck=state.deck,matched=state.matched||[];
+ if(!deck){deck=[...symbols,...symbols];for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]]}go('pairs',{deck,matched:[]});return}
+ box.className='story';box.innerHTML='<h1>Найди пары</h1><p>Открывай по две карточки. Найди шесть пар, и поддержка пришлёт свой ответ.</p><div class="pairs"></div><p role="status"></p>';
+ const board=box.querySelector('.pairs'),status=box.querySelector('[role=status]');
+ let first=null,locked=false;
+ function progress(){status.textContent='Собрано пар: '+matched.length+' из 6'}
+ const tiles=deck.map((icon,i)=>{
+  const tile=button('',()=>{
+   if(locked||tile.disabled||first===i)return;
+   reveal(true);
+   if(first===null){first=i;return}
+   const previous=first;first=null;
+   if(deck[previous]===icon){matched.push(icon);go('pairs',{matched});return}
+   locked=true;setTimeout(()=>{tiles[previous].hide();reveal(false);locked=false},800);
+  });
+  function reveal(open){tile.textContent=open?icon:'?';tile.setAttribute('aria-label','Карточка '+(i+1)+': '+(open?icon:'закрыта'))}
+  tile.hide=()=>reveal(false);tile.disabled=matched.includes(icon);reveal(tile.disabled);board.append(tile);return tile;
+ });
+ progress();if(matched.length===6)box.append(button('Прочитать ответ поддержки',()=>go('gift')));
+}
+function review(box){
+ box.className='story extras';
+ box.innerHTML='<small>Служба поддержки отношений</small><h1>Как сработал Кирюша?</h1><form><fieldset><legend>Оценка сотрудника</legend><div class="stars"></div></fieldset><label>Что сотруднику Кирюше исправить к пятому году отношений?<select></select></label><label hidden>Твоё пожелание<textarea maxlength="240" rows="3"></textarea></label><button>Оформить записку</button></form>';
+ const form=box.querySelector('form'),select=form.querySelector('select'),area=form.querySelector('textarea');
+ for(let i=1;i<=5;i++){
+  const label=document.createElement('label'),radio=document.createElement('input');radio.type='radio';radio.name='rating';radio.value=i;radio.required=true;radio.checked=state.rating===i;
+  label.append(radio,i+'★');form.querySelector('.stars').append(label);
+ }
+ const options=['Запрашивать почёсывания по предварительной записи','Закупать чипсы в промышленных объёмах','Написать своё'];
+ options.forEach(x=>select.add(new Option(x)));select.selectedIndex=state.choice??0;area.value=state.custom||'';
+ function custom(){area.parentElement.hidden=select.selectedIndex!==2;area.required=!area.parentElement.hidden}
+ select.onchange=custom;custom();
+ form.onsubmit=e=>{e.preventDefault();if(area.required&&!area.value.trim()){area.focus();return}
+ go('memo',{rating:Number(form.elements.rating.value),choice:select.selectedIndex,custom:area.value.trim(),wish:select.selectedIndex===2?area.value.trim():select.value})};
+}
+function memo(box){
+ box.className='story extras';box.innerHTML='<h1>Служебная записка</h1><canvas width="750" height="600"></canvas><p>Сохрани записку и вручи Кирюше лично.</p><div class="actions"></div>';
+ const canvas=box.querySelector('canvas'),c=canvas.getContext('2d');
+ c.font='26px sans-serif';const lines=[];let line='';
+ for(const ch of state.wish){if(ch==='\n'||c.measureText(line+ch).width>646){lines.push(line);line=''}if(ch!=='\n')line+=ch}
+ lines.push(line);canvas.height=350+lines.length*38;
+ c.fillStyle='#fff6df';c.fillRect(0,0,750,canvas.height);c.fillStyle='#433044';c.font='bold 40px sans-serif';c.fillText('Служебная записка',48,75);
+ c.font='26px sans-serif';c.fillText('Сотрудник: Кирюша',48,140);c.fillText('Оценка Катюши: '+'★'.repeat(state.rating)+'☆'.repeat(5-state.rating),48,185);c.fillText('К пятому году отношений:',48,255);
+ lines.forEach((v,i)=>c.fillText(v,48,305+i*38));canvas.setAttribute('aria-label','Оценка '+state.rating+' из 5. '+state.wish);
+ box.querySelector('.actions').append(button('Сохранить записку',()=>saveScene(canvas,'Записка Кирюше')),button('Изменить отзыв',()=>go('review')),button('К ваучеру',()=>go('voucher')));
 }
 
 render();
