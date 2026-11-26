@@ -11,6 +11,8 @@
 .rainword{height:9%;font-weight:750;font-size:clamp(12px,3vw,24px);color:#ffdf7d}
 .rainword span{border:1px solid #9d678d;background:#56354f;padding:0 .25em;border-radius:8px}
 .extras canvas{display:block;width:100%;height:auto;border-radius:16px}.picks,.stars,.actions,.pairs{display:grid;gap:10px}.picks,.actions{grid-template-columns:repeat(2,minmax(0,1fr))}.actions{margin-top:18px}.extras select,.extras textarea{display:block;width:100%;margin-top:5px;border:1px solid #baaab8;border-radius:9px;padding:10px;font:inherit;background:white;color:#31253a}.pairs{grid-template-columns:repeat(4,1fr)}.pairs button{aspect-ratio:1.3;font-size:27px;background:#594679;color:white}.pairs button:disabled{background:#e4dcea}.stars{grid-template-columns:repeat(5,1fr)}.stars label{text-align:center}.stars input{width:auto;display:block;margin:auto}.extras fieldset{border:0;padding:0}.extras [hidden]{display:none}
+.suspects{display:flex;gap:8px}.suspects button{flex:1;background:#eee4f2}.suspects [aria-pressed=true]{background:#553564;color:white}.ask{display:block;text-align:left;width:100%;margin:0 0 10px;background:#f1e5ed}.ask:hover{background:#e8d2e2}
+.settings-nav{display:flex;flex-wrap:wrap;gap:6px;margin:20px 0 8px}.settings-nav button{background:#e7e8ed}.settings-nav [aria-pressed=true]{background:#292936;color:white}.settings-body{background:white;padding:22px;border-radius:16px}.settings-body button{margin:4px}.settings-body button:disabled{background:#eee;color:#444}.delivery{padding-bottom:14px;border-bottom:1px dashed #b686a2;color:#673056}
 </style>
 <header><span class="logo">Я</span><span id="brand">Директ</span></header><main id="app"></main>
 <script>
@@ -32,6 +34,8 @@ function render(){
  document.body.className=memories||page==='voucher'?'recap':'';
  document.querySelector('#brand').textContent=memories?'Воспоминания':'Директ';
  app.innerHTML='<section></section>';const box=app.firstChild;box.className='panel';
+ if(page==='campaignFinal'){finalCampaign(box);return}
+ if(page==='interview'){interview(box);return}
  if(page==='portrait'){portrait(box);return}
  if(page==='pairs'){pairs(box);return}
  if(page==='review'){review(box);return}
@@ -52,12 +56,14 @@ function render(){
  const own=document.createElement('p');own.className='own';own.textContent=state.msg;box.append(own);
  box.insertAdjacentHTML('beforeend','<p class="bubble">Да, видим проблему. Вот что показала диагностика: «вашей кампании стресс».</p><p class="bubble">Пока ваша кампания принимает успокоительные, можете зайти в «Яндекс Воспоминания». Мы собрали ваши итоги за четыре года.</p>');
  if(page==='reply')box.append(button('Перейти в Яндекс Воспоминания',()=>go('quiz')));
- else{box.insertAdjacentHTML('beforeend','<p class="bubble">Спасибо за ожидание! Кампания успокоилась. В качестве извинения дарим вам с Кирюшей поездку в отель 5 декабря. 🤍</p>');box.append(button('Открыть ваучер',()=>go('voucher')));box.scrollTop=box.scrollHeight}return}
+ else{box.insertAdjacentHTML('beforeend','<p class="bubble">Кампания пришла в себя. Осталось проверить одно объявление перед запуском. Кирюша уже заполнил настройки.</p>');box.append(button('Вернуться в Фармтек',()=>go('campaignFinal',{campaignEdits:{},campaignTab:-1})));box.scrollTop=box.scrollHeight}return}
  box.className='story';
  if(memories){const [q,a,note]=cards[idx];box.innerHTML='<div class="progress">'+cards.map((_,i)=>i<=idx?'<i class="on"></i>':'<i></i>').join('')+'</div><small>Ваши четыре года вместе · '+(idx+1)+' / 5</small><h1>'+q+'</h1>';
  if(page==='quiz'){box.insertAdjacentHTML('beforeend','<form><label for="guess">Твоя версия</label><input id="guess" inputmode="numeric" required maxlength="60"><button>Проверить</button></form>');box.querySelector('form').onsubmit=e=>{e.preventDefault();const guess=box.querySelector('input').value.trim();if(guess)go('result',{guess})}}
  else{const guess=document.createElement('p');guess.textContent='Твоя версия — '+state.guess;box.append(guess);const result=document.createElement('p');result.className='number';result.textContent=a;box.append(result);if(note){const p=document.createElement('p');p.textContent=note;box.append(p)}box.append(idx<4?button('Следующий вопрос',()=>go('quiz',{idx:idx+1})):button('Сыграть за Катюшу',()=>go('maze')))}return}
  box.innerHTML='<small>Подарочный ваучер · Для двоих</small><h1>Катюша, с годовщиной!</h1><div class="date">5 декабря</div><div class="voucher"><p>В этот день мы с тобой едем в отель. В какой — пока сюрприз.</p><p>Люблю тебя. Твой Кирюша 🤍</p></div>';
+ if(state.campaignDelivered)box.insertAdjacentHTML('afterbegin','<p class="delivery">Фармтек · Объявление доставлено<br><strong>Охват — 1 Катюша</strong></p>');
+ box.append(button('Проверить настройки Фармтека ещё раз',()=>go('gift')));
  box.append(button(state.wish?'Моя служебная записка':'Оценить работу Кирюши',()=>go(state.wish?'memo':'review')));
  box.append(button('Составить фоторобот',()=>go('portrait')),button('Сыграть в пары',()=>go('pairs',{deck:null,matched:[]})));
  box.append(button('Сыграть в «чмоню» ещё раз',()=>go('dodge')));
@@ -287,8 +293,88 @@ function portrait(box){
   select.onchange=()=>{values[i]=select.selectedIndex;state.traits=values;try{localStorage.setItem(key,JSON.stringify(state))}catch{}draw()};
   el.append(select);box.querySelector('.picks').append(el);
  });
- draw();box.querySelector('.actions').append(button('Сохранить фоторобот',()=>saveScene(canvas,'Фоторобот Кирюши')),button('К игре «чмоня»',()=>go('dodge')));
+ draw();box.querySelector('.actions').append(button('Сохранить фоторобот',()=>saveScene(canvas,'Фоторобот Кирюши')),button('Допросить подозреваемых',startInterview));
 }
+const interviewQuestions=[
+ 'Что ты первым делом сделаешь, когда я приду домой?',
+ 'Мы зашли в магазин за хлебом. Что ещё окажется в корзине?',
+ 'Как я пойму, что ты хочешь, чтобы тебя почесали?'
+];
+const testimonies=[
+ ['Поцелую и приготовлю какой нить сюрприз, чтобы ты удивилась. От фуршета до пранка.','чипсы, сырки, попить','возьму твою руку и положу на себя'],
+ ['Поставлю чайник, заберу у тебя сумку и спрошу, кого сегодня мысленно увольняли.','Мандарины. Один почищу тебе прямо у магазина.','Прилягу рядом и буду пододвигаться по сантиметру. Я ни на что не намекаю, диван наклонный.'],
+ ['Обниму. Потом попрошу ещё раз зайти, потому что в первый раз забыл включить музыку.','Мороженое по акции. Хлеб, скорее всего, придётся идти покупать завтра.','Пришлю тебе приглашение в календарь. Тема встречи — «за ушком», длительность — час.']
+];
+function startInterview(){
+ const order=[0,1,2];
+ for(let i=2;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]]}
+ go('interview',{interview:{order,seat:0,asked:[[],[],[]],excluded:[],found:false}});
+}
+function interview(box){
+ const file=state.interview;
+ const seat=file.seat;
+ function update(changes){go('interview',{interview:{...file,...changes}})}
+ box.className='story extras';
+ box.innerHTML='<small>Поддержка Директа</small><h1>Допрос толстомясика</h1>';
+ if(file.found){
+  box.insertAdjacentHTML('beforeend','<p>Катюша узнала Кирюшу. Подозреваемый № '+(seat+1)+' дал признательные показания.</p><p class="bubble">Да, это я. А теперь почешешь?</p>');
+  box.append(button('К игре «чмоня»',()=>go('dodge')));return;
+ }
+ box.insertAdjacentHTML('beforeend','<p>По твоей ориентировке нашли троих. Все откликаются на «Кирюша». Кого допросим?</p><div class="suspects"></div>');
+ file.order.forEach((_,i)=>{
+  const choice=button('№ '+(i+1),()=>update({seat:i}));
+  choice.setAttribute('aria-label','Подозреваемый № '+(i+1));
+  choice.setAttribute('aria-pressed',String(i===seat));box.querySelector('.suspects').append(choice);
+ });
+ const title=document.createElement('h2');title.textContent='Показания № '+(seat+1);box.append(title);
+ interviewQuestions.forEach((q,i)=>{
+  if(file.asked[seat].includes(i)){
+   const question=document.createElement('p');question.textContent=q;
+   const answer=document.createElement('p');answer.className='bubble';answer.textContent=testimonies[file.order[seat]][i];box.append(question,answer);
+  }else{
+   const ask=button(q,()=>update({asked:file.asked.map((list,n)=>n===seat?[...list,i]:list)}));
+   ask.className='ask';box.append(ask);
+  }
+ });
+ if(file.excluded.includes(seat)){
+  const verdict=document.createElement('p');verdict.setAttribute('role','status');verdict.textContent='Обозналась! Этого отпускаем. Послушай, что скажут остальные.';box.append(verdict);
+ }else if(file.asked[seat].length){
+  box.append(button('Узнаю! Это мой Кирюша',()=>file.order[seat]===0?update({found:true}):update({excluded:[...file.excluded,seat]})));
+ }
+}
+
+function finalCampaign(box){
+ const settings=[
+  {name:'Аудитория',initial:'Все 393 500 пользователей',note:'Я взял самую большую цифру из отчёта. Большая же лучше?',choices:['Один человек — Катюша']},
+  {name:'География',initial:cities.join(', '),note:'Выбрал все места, где нам было хорошо',choices:['Скрыть географию от получателя. Это сюрприз']},
+  {name:'Расписание',initial:'Ежедневно в 07:00',note:'Чтобы ты точно заметила',choices:['Отключить ежедневные показы','Пусть Кирюша сам встаёт в семь']}
+ ];
+ const edits=state.campaignEdits||{},tab=state.campaignTab??-1;
+ const remaining=settings.filter((_,i)=>edits[i]===undefined).length;
+ box.className='desk finaldesk';
+ box.innerHTML='<small>Директ / Мои кампании</small><h1>Фармтек</h1><div class="row"><div><strong>Объявление № 1</strong><br><small>Автор черновика — Кирюша</small></div></div><div class="settings-nav"></div><div class="settings-body"></div><p role="status"></p>';
+ const notice=box.querySelector('[role=status]');
+ box.querySelector('.row').append(button('Запустить кампанию',()=>{
+  if(remaining){notice.textContent='Запуск приостановлен. Осталось исправить настроек: '+remaining+'.';return}
+  go('voucher',{campaignDelivered:true});
+ }));
+ const nav=box.querySelector('.settings-nav'),body=box.querySelector('.settings-body');
+ settings.forEach((s,i)=>{
+  const b=button(s.name,()=>go('campaignFinal',{campaignTab:i}));b.setAttribute('aria-pressed',String(i===tab));nav.append(b);
+ });
+ if(tab===-1){body.textContent='Кирюша оставил черновик. Проверь три настройки объявления перед запуском.';return}
+ const setting=settings[tab];
+ const value=document.createElement('h2');value.textContent=setting.choices[edits[tab]]??setting.initial;
+ const comment=document.createElement('p');comment.className='bubble';comment.textContent='Кирюша: «'+setting.note+'»';
+ body.append(value,comment);
+ setting.choices.forEach((choice,i)=>{
+  const b=button(choice,()=>go('campaignFinal',{campaignEdits:{...edits,[tab]:i}}));
+  b.disabled=edits[tab]===i;body.append(b);
+ });
+ if(edits[tab]!==undefined)notice.textContent=remaining?'Настройка сохранена.':'Объявление готово к запуску.';
+ if(tab===2&&edits[2]===1){const chat=document.createElement('p');chat.className='bubble';chat.textContent='Чат · Кирюша: так, подожди';body.append(chat)}
+}
+
 function pairs(box){
  const symbols=['🥔','📱','🛎️','💌','🧳','🪮'];
  let deck=state.deck,matched=state.matched||[];
