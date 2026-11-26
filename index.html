@@ -13,6 +13,7 @@
 .extras canvas{display:block;width:100%;height:auto;border-radius:16px}.picks,.stars,.actions,.pairs{display:grid;gap:10px}.picks,.actions{grid-template-columns:repeat(2,minmax(0,1fr))}.actions{margin-top:18px}.extras select,.extras textarea{display:block;width:100%;margin-top:5px;border:1px solid #baaab8;border-radius:9px;padding:10px;font:inherit;background:white;color:#31253a}.pairs{grid-template-columns:repeat(4,1fr)}.pairs button{aspect-ratio:1.3;font-size:27px;background:#594679;color:white}.pairs button:disabled{background:#e4dcea}.stars{grid-template-columns:repeat(5,1fr)}.stars label{text-align:center}.stars input{width:auto;display:block;margin:auto}.extras fieldset{border:0;padding:0}.extras [hidden]{display:none}
 .suspects{display:flex;gap:8px}.suspects button{flex:1;background:#eee4f2}.suspects [aria-pressed=true]{background:#553564;color:white}.ask{display:block;text-align:left;width:100%;margin:0 0 10px;background:#f1e5ed}.ask:hover{background:#e8d2e2}
 .settings-nav{display:flex;flex-wrap:wrap;gap:6px;margin:20px 0 8px}.settings-nav button{background:#e7e8ed}.settings-nav [aria-pressed=true]{background:#292936;color:white}.settings-body{background:white;padding:22px;border-radius:16px}.settings-body button{margin:4px}.settings-body button:disabled{background:#eee;color:#444}.delivery{padding-bottom:14px;border-bottom:1px dashed #b686a2;color:#673056}
+.subscription{box-sizing:border-box;width:min(420px,calc(100% - 32px));max-height:90vh;overflow:auto;padding:30px;border:0;border-radius:24px;color:#282033;background:#fff9f1;box-shadow:0 20px 80px #21113236}.subscription[open]{animation:subscription-in .2s ease-out}.subscription::backdrop{background:#21172e80}.subscription h2{font-size:30px;line-height:1.1;margin:12px 0}.subscription .later{background:transparent;width:100%}@keyframes subscription-in{from{opacity:0;transform:translateY(16px)}}@media(prefers-reduced-motion:reduce){.subscription[open]{animation:none}}
 </style>
 <header><span class="logo">Я</span><span id="brand">Директ</span></header><main id="app"></main>
 <script>
@@ -29,6 +30,16 @@ let state={page:'login',idx:0},misses=0;
 try{Object.assign(state,JSON.parse(localStorage.getItem(key)))}catch{}
 function go(page,extra={}){Object.assign(state,extra,{page});try{localStorage.setItem(key,JSON.stringify(state))}catch{}render()}
 function button(text,action){const b=document.createElement('button');b.textContent=text;b.onclick=action;return b}
+function showSubscription(box){
+ const dialog=document.createElement('dialog');
+ dialog.className='subscription';
+ dialog.setAttribute('aria-labelledby','subscription-title');
+ dialog.innerHTML='<small>Яндекс Воспоминания</small><h2 id="subscription-title">Ой, у вас нет подписки</h2><p>Вы с Кирюшей копили воспоминания четыре года. Чтобы посмотреть итоги, подключите тариф «Для двоих».</p><p><strong>1 поцелуй</strong> · разово<br>Кирюша спишет при встрече.</p>';
+ const buy=button('Купить за 1 поцелуй',()=>{dialog.close();go('quiz',{subscribed:true,idx:0})});
+ const later=button('Вернуться в чат',()=>dialog.close());later.className='later';
+ dialog.append(buy,later);dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+ box.append(dialog);dialog.showModal();
+}
 function render(){
  const {page,idx}=state, memories=page==='quiz'||page==='result';
  document.body.className=memories||page==='voucher'?'recap':'';
@@ -55,7 +66,7 @@ function render(){
  if(page==='chat'){box.insertAdjacentHTML('beforeend','<form><label for="msg">Ваше сообщение</label><input id="msg" required maxlength="2000"><button>Отправить</button></form>');box.querySelector('form').onsubmit=e=>{e.preventDefault();const msg=box.querySelector('input').value.trim();if(msg)go('reply',{msg})};return}
  const own=document.createElement('p');own.className='own';own.textContent=state.msg;box.append(own);
  box.insertAdjacentHTML('beforeend','<p class="bubble">Да, видим проблему. Вот что показала диагностика: «вашей кампании стресс».</p><p class="bubble">Пока ваша кампания принимает успокоительные, можете зайти в «Яндекс Воспоминания». Мы собрали ваши итоги за четыре года.</p>');
- if(page==='reply')box.append(button('Перейти в Яндекс Воспоминания',()=>go('quiz')));
+ if(page==='reply')box.append(button('Перейти в Яндекс Воспоминания',()=>state.subscribed?go('quiz'):showSubscription(box)));
  else{box.insertAdjacentHTML('beforeend','<p class="bubble">Кампания пришла в себя. Осталось проверить одно объявление перед запуском. Кирюша уже заполнил настройки.</p>');box.append(button('Вернуться в Фармтек',()=>go('campaignFinal',{campaignEdits:{},campaignTab:-1})));box.scrollTop=box.scrollHeight}return}
  box.className='story';
  if(memories){const [q,a,note]=cards[idx];box.innerHTML='<div class="progress">'+cards.map((_,i)=>i<=idx?'<i class="on"></i>':'<i></i>').join('')+'</div><small>Ваши четыре года вместе · '+(idx+1)+' / 5</small><h1>'+q+'</h1>';
